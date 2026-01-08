@@ -147,56 +147,6 @@
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script>
-        // Three.js is loaded from CDN but may be blocked in some environments
-        // This is a minimal inline version for demonstration purposes
-        
-        // Check if THREE is available, if not show message
-        if (typeof THREE === 'undefined') {
-            console.warn('THREE.js not loaded from CDN. Showing placeholder model.');
-            document.getElementById('loading').innerHTML = 
-                '<h2>⚠️ THREE.js CDN Blocked</h2>' +
-                '<p>The 3D model viewer requires THREE.js library.</p>' +
-                '<p>In a production environment, host THREE.js locally or whitelist CDN access.</p>' +
-                '<p><strong>Note:</strong> The viewer is functional - it\'s just the external library that\'s blocked in this environment.</p>';
-            
-            // Create basic HTML5 canvas fallback showing the structure
-            setTimeout(() => {
-                const canvas = document.createElement('canvas');
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-                canvas.style.position = 'absolute';
-                canvas.style.top = '0';
-                canvas.style.left = '0';
-                canvas.style.zIndex = '1';
-                document.getElementById('viewer').appendChild(canvas);
-                
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#f0f0f0';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                // Draw simple 3D-like house representation
-                ctx.fillStyle = '#8ab4f8';
-                ctx.fillRect(200, 150, 200, 150);
-                ctx.strokeStyle = '#000';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(200, 150, 200, 150);
-                
-                ctx.fillStyle = '#f8b4ab';
-                ctx.fillRect(420, 170, 150, 130);
-                ctx.strokeRect(420, 170, 150, 130);
-                
-                ctx.fillStyle = '#333';
-                ctx.font = '20px Arial';
-                ctx.fillText('3D Model Preview (Placeholder)', canvas.width / 2 - 150, 80);
-                ctx.font = '14px Arial';
-                ctx.fillText('Room 1', 280, 230);
-                ctx.fillText('Room 2', 480, 240);
-            }, 100);
-        } else {
-            // THREE.js loaded successfully, proceed with 3D viewer
-            init();
-        }
-        
         // Three.js scene setup
         let scene, camera, renderer, model;
         let rotationEnabled = true;
@@ -451,8 +401,51 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // Initialize the viewer only if THREE.js loaded successfully
-        if (typeof THREE !== 'undefined') {
+        // Initialize the viewer after all functions are defined
+        // Check if THREE.js loaded successfully from CDN
+        if (typeof THREE === 'undefined') {
+            console.warn('THREE.js not loaded from CDN. Showing placeholder model.');
+            document.getElementById('loading').innerHTML = 
+                '<h2>⚠️ THREE.js CDN Blocked</h2>' +
+                '<p>The 3D model viewer requires THREE.js library.</p>' +
+                '<p>In a production environment, host THREE.js locally or whitelist CDN access.</p>' +
+                '<p><strong>Note:</strong> The viewer is functional - it\'s just the external library that\'s blocked in this environment.</p>';
+            
+            // Create basic HTML5 canvas fallback showing the structure
+            setTimeout(() => {
+                const canvas = document.createElement('canvas');
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                canvas.style.position = 'absolute';
+                canvas.style.top = '0';
+                canvas.style.left = '0';
+                canvas.style.zIndex = '1';
+                document.getElementById('viewer').appendChild(canvas);
+                
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#f0f0f0';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw simple 3D-like house representation
+                ctx.fillStyle = '#8ab4f8';
+                ctx.fillRect(200, 150, 200, 150);
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(200, 150, 200, 150);
+                
+                ctx.fillStyle = '#f8b4ab';
+                ctx.fillRect(420, 170, 150, 130);
+                ctx.strokeRect(420, 170, 150, 130);
+                
+                ctx.fillStyle = '#333';
+                ctx.font = '20px Arial';
+                ctx.fillText('3D Model Preview (Placeholder)', canvas.width / 2 - 150, 80);
+                ctx.font = '14px Arial';
+                ctx.fillText('Room 1', 280, 230);
+                ctx.fillText('Room 2', 480, 240);
+            }, 100);
+        } else {
+            // THREE.js loaded successfully, initialize viewer
             init();
         }
     </script>
