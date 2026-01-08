@@ -521,8 +521,32 @@ class PDFParser:
                         level = floor_info[0] if floor_info else page_num
                         name = floor_info[1] if floor_info else f"Floor {page_num + 1}"
                         
-                        # Detect rooms
+                        # Detect rooms from lines or rectangles
                         polygons = self.detect_closed_polygons(line_dicts)
+                        
+                        # If no polygons from lines, try to use rectangles directly
+                        if not polygons:
+                            rects = page.rects if hasattr(page, 'rects') else []
+                            for rect in rects:
+                                x0 = rect.get('x0', 0)
+                                y0 = rect.get('y0', 0)
+                                x1 = rect.get('x1', 0)
+                                y1 = rect.get('y1', 0)
+                                
+                                # Create polygon from rectangle
+                                polygon = [
+                                    (x0, y0),
+                                    (x1, y0),
+                                    (x1, y1),
+                                    (x0, y1)
+                                ]
+                                
+                                # Only add if it's a reasonable size
+                                width = abs(x1 - x0)
+                                height = abs(y1 - y0)
+                                if width > 50 and height > 50:  # Minimum room size
+                                    polygons.append(polygon)
+                        
                         room_labels = self.extract_room_labels(page, polygons)
                         
                         # Detect doors and windows
