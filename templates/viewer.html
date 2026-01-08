@@ -235,14 +235,22 @@
                 },
                 function (xhr) {
                     // Progress callback
-                    const percentComplete = (xhr.loaded / xhr.total) * 100;
-                    console.log(`Loading: ${percentComplete.toFixed(2)}%`);
+                    if (xhr.total > 0) {
+                        const percentComplete = (xhr.loaded / xhr.total) * 100;
+                        console.log(`Loading: ${percentComplete.toFixed(2)}%`);
+                    }
                 },
                 function (error) {
                     // Error callback
                     console.error('Error loading model:', error);
-                    document.getElementById('loading').innerHTML = 
-                        '<h2>❌ Error Loading Model</h2><p>' + error.message + '</p>';
+                    const loadingDiv = document.getElementById('loading');
+                    const errorHeading = document.createElement('h2');
+                    errorHeading.textContent = '❌ Error Loading Model';
+                    const errorMsg = document.createElement('p');
+                    errorMsg.textContent = error.message || 'An error occurred while loading the model';
+                    loadingDiv.innerHTML = '';
+                    loadingDiv.appendChild(errorHeading);
+                    loadingDiv.appendChild(errorMsg);
                     
                     // Show a placeholder if model fails to load
                     createPlaceholderModel();

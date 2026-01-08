@@ -186,6 +186,17 @@ def viewer():
     Render the 3D model viewer page.
     """
     model_file = request.args.get('model', 'output.glb')
+    
+    # Validate model_file to prevent path traversal attacks
+    # Only allow alphanumeric characters, dots, hyphens, and underscores
+    import re
+    if not re.match(r'^[\w\-\.]+$', model_file):
+        model_file = 'output.glb'  # Fall back to default if invalid
+    
+    # Ensure the file doesn't contain path traversal sequences
+    if '..' in model_file or '/' in model_file or '\\' in model_file:
+        model_file = 'output.glb'  # Fall back to default if invalid
+    
     return render_template('viewer.html', model_file=model_file)
 
 
