@@ -10,6 +10,7 @@ import json
 
 from pdf_parser import parse_pdf
 from model_builder import build_model
+from data_structures import Building
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -138,9 +139,9 @@ def generate_model(filename):
         # Parse the PDF
         parsed_data = parse_pdf(filepath)
         
-        # Build the 3D model
-        # Use placeholder model by default for initial scaffold
-        builder = build_model(parsed_data, use_placeholder=True)
+        # Build the 3D model - now using actual data when available
+        use_placeholder = request.args.get('placeholder', '').lower() in ('true', '1', 'yes')
+        builder = build_model(parsed_data, use_placeholder=use_placeholder)
         
         # Get model data for visualization
         model_data = builder.get_model_data()
@@ -187,6 +188,73 @@ def viewer():
     """
     model_file = request.args.get('model', '')
     return render_template('viewer.html', model_file=model_file)
+
+
+@app.route('/building-structure/<filename>', methods=['GET'])
+def get_building_structure(filename):
+    """
+    Get the building structure data from parsed PDF.
+    
+    Args:
+        filename: Name of the PDF file
+    
+    Returns:
+        JSON response with building structure data
+    """
+    filename = secure_filename(filename)
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    
+    if not os.path.exists(filepath):
+        return jsonify({'error': 'File not found'}), 404
+    
+    try:
+        # Parse the PDF
+        parsed_data = parse_pdf(filepath)
+        building = parsed_data.get('building')
+        
+        if not building:
+            return jsonify({'error': 'No building structure found'}), 404
+        
+        # Convert building to JSON-serializable format
+        structure_data = {
+            'floors': [
+                {
+                    'level': floor.level,
+                    'name': floor.name,
+                    'height': floor.height,
+                    'elevation': floor.elevation,
+                    'rooms': [
+                        {
+                            'name': room.name,
+                            'area': room.area,
+                            'height': room.height,
+                            'boundary_points_count': len(room.boundary_points)
+                        }
+                        for room in floor.rooms
+                    ]
+                }
+                for floor in building.floors
+            ],
+            'elevations': [
+                {
+                    'view': elev.view,
+                    'has_roof_profile': elev.roof_profile is not None,
+                    'width': elev.width,
+                    'height': elev.height
+                }
+                for elev in building.elevations
+            ],
+            'total_height': building.total_height(),
+            'scale_factor': building.scale_factor
+        }
+        
+        return jsonify({
+            'message': 'Building structure retrieved successfully',
+            'structure': structure_data
+        }), 200
+    
+    except Exception as e:
+        return jsonify({'error': f'Error retrieving structure: {str(e)}'}), 500
 
 
 @app.route('/api/status', methods=['GET'])
