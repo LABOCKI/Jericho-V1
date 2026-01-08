@@ -103,10 +103,23 @@ This is an initial scaffold with placeholder functionality. The current implemen
 
 ## Replit Compatibility
 
-This application is designed to be compatible with Replit. Simply:
-1. Import the repository into Replit
-2. Run the application
-3. Access via the Replit webview
+This application is fully compatible with Replit. To run on Replit:
+
+### Option 1: Import from GitHub
+1. Go to [Replit](https://replit.com/)
+2. Click "Create Repl" and select "Import from GitHub"
+3. Enter the repository URL: `https://github.com/LABOCKI/Jericho-V1`
+4. Replit will automatically detect the configuration and install dependencies
+5. Click "Run" to start the application
+6. Access the app through Replit's webview
+
+### Option 2: Manual Setup
+1. Create a new Python Repl
+2. Upload or clone the project files
+3. Dependencies will be installed automatically from `requirements.txt`
+4. Click "Run" to start the application
+
+The application automatically configures itself for Replit's environment (port and host settings).
 
 ## License
 
