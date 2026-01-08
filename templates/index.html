@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to 3D Model Converter</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏠 PDF House Plan to 3D Model Converter</h1>
+            <p>Upload your house plan PDF to generate a 3D model</p>
+        </header>
+
+        <main>
+            <div class="upload-section">
+                <h2>Upload PDF House Plan</h2>
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="file-input-wrapper">
+                        <input type="file" id="fileInput" name="file" accept=".pdf" required>
+                        <label for="fileInput" class="file-label">
+                            <span class="file-icon">📄</span>
+                            <span id="fileName">Choose a PDF file</span>
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="uploadBtn">Upload & Process</button>
+                </form>
+            </div>
+
+            <div id="status" class="status-section" style="display: none;">
+                <h3>Status</h3>
+                <div id="statusMessage" class="status-message"></div>
+                <div id="progressBar" class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+            </div>
+
+            <div id="results" class="results-section" style="display: none;">
+                <h2>Processing Results</h2>
+                
+                <div class="results-grid">
+                    <div class="result-card">
+                        <h3>📊 PDF Metadata</h3>
+                        <div id="metadata" class="result-content"></div>
+                    </div>
+
+                    <div class="result-card">
+                        <h3>📏 Extracted Dimensions</h3>
+                        <div id="dimensions" class="result-content"></div>
+                    </div>
+
+                    <div class="result-card">
+                        <h3>🏗️ Geometric Data</h3>
+                        <div id="geometric" class="result-content"></div>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button id="generateModelBtn" class="btn btn-success">Generate 3D Model</button>
+                </div>
+            </div>
+
+            <div id="modelSection" class="model-section" style="display: none;">
+                <h2>Generated 3D Model</h2>
+                <div class="model-info">
+                    <p>Your 3D model has been generated successfully!</p>
+                    <div class="model-actions">
+                        <button id="viewModelBtn" class="btn btn-primary">View in 3D Viewer</button>
+                        <button id="downloadModelBtn" class="btn btn-secondary">Download Model (.obj)</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>PDF to 3D Model Converter | Built with Flask, PyPDF2, and Three.js</p>
+        </footer>
+    </div>
+
+    <script>
+        let currentFilename = '';
+        let currentObjFile = '';
+
+        // File input handling
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                fileName.textContent = e.target.files[0].name;
+            }
+        });
+
+        // Form submission
+        const uploadForm = document.getElementById('uploadForm');
+        uploadForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(uploadForm);
+            const statusSection = document.getElementById('status');
+            const statusMessage = document.getElementById('statusMessage');
+            const resultsSection = document.getElementById('results');
+            const modelSection = document.getElementById('modelSection');
+            
+            // Show status section
+            statusSection.style.display = 'block';
+            resultsSection.style.display = 'none';
+            modelSection.style.display = 'none';
+            
+            updateStatus('Uploading file...', 30);
+            
+            try {
+                // Upload file
+                const uploadResponse = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const uploadData = await uploadResponse.json();
+                
+                if (!uploadResponse.ok) {
+                    throw new Error(uploadData.error || 'Upload failed');
+                }
+                
+                currentFilename = uploadData.filename;
+                updateStatus('File uploaded successfully! Parsing PDF...', 60);
+                
+                // Parse PDF
+                const parseResponse = await fetch(`/parse/${currentFilename}`);
+                const parseData = await parseResponse.json();
+                
+                if (!parseResponse.ok) {
+                    throw new Error(parseData.error || 'Parsing failed');
+                }
+                
+                updateStatus('PDF parsed successfully!', 100);
+                
+                // Display results
+                setTimeout(() => {
+                    displayResults(parseData.data);
+                    resultsSection.style.display = 'block';
+                }, 500);
+                
+            } catch (error) {
+                statusMessage.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        });
+
+        // Generate model button
+        document.getElementById('generateModelBtn').addEventListener('click', async function() {
+            const statusSection = document.getElementById('status');
+            const statusMessage = document.getElementById('statusMessage');
+            const modelSection = document.getElementById('modelSection');
+            
+            statusSection.style.display = 'block';
+            updateStatus('Generating 3D model...', 50);
+            
+            try {
+                const response = await fetch(`/generate-model/${currentFilename}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Model generation failed');
+                }
+                
+                currentObjFile = data.obj_file;
+                updateStatus('3D model generated successfully!', 100);
+                
+                setTimeout(() => {
+                    modelSection.style.display = 'block';
+                }, 500);
+                
+            } catch (error) {
+                statusMessage.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        });
+
+        // View model button
+        document.getElementById('viewModelBtn').addEventListener('click', function() {
+            window.open(`/viewer?model=${currentObjFile}`, '_blank');
+        });
+
+        // Download model button
+        document.getElementById('downloadModelBtn').addEventListener('click', function() {
+            window.location.href = `/download/${currentObjFile}`;
+        });
+
+        function updateStatus(message, progress) {
+            const statusMessage = document.getElementById('statusMessage');
+            const progressFill = document.getElementById('progressFill');
+            
+            statusMessage.innerHTML = message;
+            progressFill.style.width = progress + '%';
+        }
+
+        function displayResults(data) {
+            // Display metadata
+            const metadataDiv = document.getElementById('metadata');
+            metadataDiv.innerHTML = `
+                <p><strong>Title:</strong> ${data.metadata.title || 'N/A'}</p>
+                <p><strong>Pages:</strong> ${data.metadata.pages || 0}</p>
+                <p><strong>Author:</strong> ${data.metadata.author || 'N/A'}</p>
+                <p><strong>Creator:</strong> ${data.metadata.creator || 'N/A'}</p>
+            `;
+            
+            // Display dimensions
+            const dimensionsDiv = document.getElementById('dimensions');
+            dimensionsDiv.innerHTML = `
+                <p><strong>Text Sections:</strong> ${data.text_length}</p>
+                <p><strong>Dimensions Found:</strong> ${data.dimensions_count}</p>
+            `;
+            
+            // Display geometric data
+            const geometricDiv = document.getElementById('geometric');
+            geometricDiv.innerHTML = `
+                <p><strong>Lines Detected:</strong> ${data.lines_count}</p>
+                <p><strong>Rectangles Detected:</strong> ${data.rectangles_count}</p>
+            `;
+        }
+    </script>
+</body>
+</html>
