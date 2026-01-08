@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+        }
+
+        .viewer-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #viewer {
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            max-width: 300px;
+        }
+
+        .controls h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+        }
+
+        .info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 200;
+        }
+
+        .loading h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="viewer-container">
+        <div id="loading" class="loading">
+            <h2>🏗️ Loading 3D Model...</h2>
+            <p>Please wait while we prepare your visualization</p>
+        </div>
+
+        <div class="controls">
+            <h2>⚙️ Viewer Controls</h2>
+            
+            <div class="control-group">
+                <label>Rotation Speed</label>
+                <input type="range" id="rotationSpeed" min="0" max="2" step="0.1" value="0.5">
+            </div>
+
+            <div class="control-group">
+                <button class="btn" id="toggleRotation">⏸️ Pause Rotation</button>
+                <button class="btn" id="resetView">🔄 Reset View</button>
+            </div>
+
+            <div class="control-group">
+                <button class="btn" id="wireframe">🔲 Toggle Wireframe</button>
+                <button class="btn" id="closeBtn">❌ Close</button>
+            </div>
+        </div>
+
+        <div class="info">
+            <strong>Controls:</strong><br>
+            🖱️ Mouse: Rotate view<br>
+            🔍 Scroll: Zoom in/out<br>
+            📐 Right-click + drag: Pan
+        </div>
+
+        <div id="viewer"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Three.js scene setup
+        let scene, camera, renderer, model;
+        let rotationEnabled = true;
+        let rotationSpeed = 0.5;
+
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf0f0f0);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(
+                75,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            camera.position.set(20, 20, 20);
+            camera.lookAt(0, 0, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('viewer').appendChild(renderer.domElement);
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0x404040, 2);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(10, 10, 10);
+            scene.add(directionalLight);
+
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight2.position.set(-10, -10, -10);
+            scene.add(directionalLight2);
+
+            // Grid helper
+            const gridHelper = new THREE.GridHelper(50, 50);
+            scene.add(gridHelper);
+
+            // Axes helper
+            const axesHelper = new THREE.AxesHelper(5);
+            scene.add(axesHelper);
+
+            // Load placeholder model
+            createPlaceholderModel();
+
+            // Controls
+            setupControls();
+
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize, false);
+
+            // Hide loading screen
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+            }, 1000);
+
+            // Animation loop
+            animate();
+        }
+
+        function createPlaceholderModel() {
+            // Create a simple house structure as placeholder
+            const group = new THREE.Group();
+
+            // Room 1
+            const geometry1 = new THREE.BoxGeometry(10, 8, 12);
+            const material1 = new THREE.MeshPhongMaterial({
+                color: 0x8ab4f8,
+                transparent: true,
+                opacity: 0.8
+            });
+            const room1 = new THREE.Mesh(geometry1, material1);
+            room1.position.set(5, 4, 6);
+
+            // Room 1 edges
+            const edges1 = new THREE.EdgesGeometry(geometry1);
+            const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+            const wireframe1 = new THREE.LineSegments(edges1, edgeMaterial);
+            wireframe1.position.copy(room1.position);
+
+            // Room 2
+            const geometry2 = new THREE.BoxGeometry(8, 8, 10);
+            const material2 = new THREE.MeshPhongMaterial({
+                color: 0xf8b4ab,
+                transparent: true,
+                opacity: 0.8
+            });
+            const room2 = new THREE.Mesh(geometry2, material2);
+            room2.position.set(14, 4, 5);
+
+            // Room 2 edges
+            const edges2 = new THREE.EdgesGeometry(geometry2);
+            const wireframe2 = new THREE.LineSegments(edges2, edgeMaterial);
+            wireframe2.position.copy(room2.position);
+
+            group.add(room1, wireframe1, room2, wireframe2);
+
+            // Center the model
+            const box = new THREE.Box3().setFromObject(group);
+            const center = box.getCenter(new THREE.Vector3());
+            group.position.sub(center);
+
+            model = group;
+            scene.add(model);
+        }
+
+        function setupControls() {
+            // Rotation speed control
+            document.getElementById('rotationSpeed').addEventListener('input', function(e) {
+                rotationSpeed = parseFloat(e.target.value);
+            });
+
+            // Toggle rotation
+            document.getElementById('toggleRotation').addEventListener('click', function() {
+                rotationEnabled = !rotationEnabled;
+                this.textContent = rotationEnabled ? '⏸️ Pause Rotation' : '▶️ Resume Rotation';
+            });
+
+            // Reset view
+            document.getElementById('resetView').addEventListener('click', function() {
+                camera.position.set(20, 20, 20);
+                camera.lookAt(0, 0, 0);
+            });
+
+            // Wireframe toggle
+            document.getElementById('wireframe').addEventListener('click', function() {
+                if (model) {
+                    model.traverse((child) => {
+                        if (child.isMesh) {
+                            child.material.wireframe = !child.material.wireframe;
+                        }
+                    });
+                }
+            });
+
+            // Close button
+            document.getElementById('closeBtn').addEventListener('click', function() {
+                window.close();
+            });
+
+            // Mouse controls
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            let isRightClick = false;
+
+            renderer.domElement.addEventListener('mousedown', function(e) {
+                isDragging = true;
+                isRightClick = e.button === 2;
+                e.preventDefault();
+            });
+
+            renderer.domElement.addEventListener('mousemove', function(e) {
+                if (isDragging && model) {
+                    const deltaMove = {
+                        x: e.offsetX - previousMousePosition.x,
+                        y: e.offsetY - previousMousePosition.y
+                    };
+
+                    if (isRightClick) {
+                        // Pan camera
+                        camera.position.x -= deltaMove.x * 0.05;
+                        camera.position.y += deltaMove.y * 0.05;
+                    } else {
+                        // Rotate model
+                        model.rotation.y += deltaMove.x * 0.01;
+                        model.rotation.x += deltaMove.y * 0.01;
+                        rotationEnabled = false;
+                    }
+                }
+
+                previousMousePosition = {
+                    x: e.offsetX,
+                    y: e.offsetY
+                };
+            });
+
+            document.addEventListener('mouseup', function(e) {
+                isDragging = false;
+            });
+
+            // Prevent context menu on right-click
+            renderer.domElement.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+            });
+
+            // Zoom with mouse wheel
+            renderer.domElement.addEventListener('wheel', function(e) {
+                e.preventDefault();
+                const delta = e.deltaY * 0.01;
+                camera.position.z += delta;
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Auto-rotate if enabled
+            if (rotationEnabled && model) {
+                model.rotation.y += 0.001 * rotationSpeed;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Initialize the viewer
+        init();
+    </script>
+</body>
+</html>
