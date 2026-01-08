@@ -140,7 +140,7 @@ def generate_model(filename):
         parsed_data = parse_pdf(filepath)
         
         # Build the 3D model - now using actual data when available
-        use_placeholder = request.args.get('placeholder', 'false').lower() == 'true'
+        use_placeholder = request.args.get('placeholder', '').lower() in ('true', '1', 'yes')
         builder = build_model(parsed_data, use_placeholder=use_placeholder)
         
         # Get model data for visualization

@@ -14,6 +14,9 @@ from data_structures import (
     Elevation, RoofProfile, Building
 )
 
+# Constants
+MIN_ROOM_SIZE_UNITS = 50  # Minimum room size in PDF coordinate units
+
 
 class PDFParser:
     """
@@ -230,30 +233,52 @@ class PDFParser:
                 # Look for matching vertical lines
                 for v1 in v_lines:
                     for v2 in v_lines:
-                        y1_min, y1_max, x1 = v1
-                        y2_min, y2_max, x2 = v2
+                        rect = self._lines_form_rectangle(h1, h2, v1, v2, tolerance)
                         
-                        if abs(x2 - x1) < tolerance:
-                            continue
-                        
-                        # Check if they form a rectangle
-                        if (abs(x1 - x1_min) < tolerance and abs(x1 - x2_min) < tolerance and
-                            abs(x2 - x1_max) < tolerance and abs(x2 - x2_max) < tolerance and
-                            abs(y1 - y1_min) < tolerance and abs(y1 - y2_min) < tolerance and
-                            abs(y2 - y1_max) < tolerance and abs(y2 - y2_max) < tolerance):
-                            
-                            rect = [
-                                (x1_min, y1),
-                                (x1_max, y1),
-                                (x1_max, y2),
-                                (x1_min, y2)
-                            ]
-                            
-                            # Check if this rectangle is not already added
-                            if rect not in rectangles:
-                                rectangles.append(rect)
+                        if rect and rect not in rectangles:
+                            rectangles.append(rect)
         
         return rectangles
+    
+    def _lines_form_rectangle(self, h1: Tuple, h2: Tuple, v1: Tuple, v2: Tuple, 
+                             tolerance: float) -> Optional[List[Tuple[float, float]]]:
+        """
+        Check if horizontal and vertical lines form a rectangle.
+        
+        Args:
+            h1: First horizontal line (x_min, x_max, y)
+            h2: Second horizontal line (x_min, x_max, y)
+            v1: First vertical line (y_min, y_max, x)
+            v2: Second vertical line (y_min, y_max, x)
+            tolerance: Distance tolerance for line alignment
+        
+        Returns:
+            Rectangle points if lines form a valid rectangle, None otherwise
+        """
+        x1_min, x1_max, y1 = h1
+        x2_min, x2_max, y2 = h2
+        y1_min, y1_max, x1 = v1
+        y2_min, y2_max, x2 = v2
+        
+        # Check if lines are sufficiently separated
+        if abs(x2 - x1) < tolerance or abs(y2 - y1) < tolerance:
+            return None
+        
+        # Check if lines align to form rectangle corners
+        h_lines_match_left = abs(x1 - x1_min) < tolerance and abs(x1 - x2_min) < tolerance
+        h_lines_match_right = abs(x2 - x1_max) < tolerance and abs(x2 - x2_max) < tolerance
+        v_lines_match_bottom = abs(y1 - y1_min) < tolerance and abs(y1 - y2_min) < tolerance
+        v_lines_match_top = abs(y2 - y1_max) < tolerance and abs(y2 - y2_max) < tolerance
+        
+        if h_lines_match_left and h_lines_match_right and v_lines_match_bottom and v_lines_match_top:
+            return [
+                (x1_min, y1),
+                (x1_max, y1),
+                (x1_max, y2),
+                (x1_min, y2)
+            ]
+        
+        return None
     
     def extract_room_labels(self, page, polygons: List[List[Tuple[float, float]]]) -> Dict[int, str]:
         """
@@ -544,7 +569,7 @@ class PDFParser:
                                 # Only add if it's a reasonable size
                                 width = abs(x1 - x0)
                                 height = abs(y1 - y0)
-                                if width > 50 and height > 50:  # Minimum room size
+                                if width > MIN_ROOM_SIZE_UNITS and height > MIN_ROOM_SIZE_UNITS:
                                     polygons.append(polygon)
                         
                         room_labels = self.extract_room_labels(page, polygons)

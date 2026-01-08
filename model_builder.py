@@ -28,6 +28,18 @@ class ModelBuilder:
         self.mesh = None
         self.scale_factor = 1.0
     
+    def _is_valid_mesh(self, mesh: trimesh.Trimesh) -> bool:
+        """
+        Check if a mesh is valid and has geometry.
+        
+        Args:
+            mesh: Trimesh object to validate
+        
+        Returns:
+            True if mesh has vertices, False otherwise
+        """
+        return mesh is not None and mesh.vertices.shape[0] > 0
+    
     def set_scale(self, scale_factor: float = 1.0):
         """
         Set the scale factor for the 3D model.
@@ -177,7 +189,7 @@ class ModelBuilder:
             )
             
             # Translate to correct elevation
-            if wall_mesh.vertices.shape[0] > 0:
+            if self._is_valid_mesh(wall_mesh):
                 wall_mesh.apply_translation([0, 0, elevation * self.scale_factor])
                 meshes.append(wall_mesh)
         
@@ -344,12 +356,12 @@ class ModelBuilder:
             
             # Create floor slab
             floor_slab = self.create_floor_slab(room, floor.elevation)
-            if floor_slab.vertices.shape[0] > 0:
+            if self._is_valid_mesh(floor_slab):
                 meshes.append(floor_slab)
             
             # Create ceiling
             ceiling = self.create_ceiling(room, floor.elevation)
-            if ceiling.vertices.shape[0] > 0:
+            if self._is_valid_mesh(ceiling):
                 meshes.append(ceiling)
         
         return meshes

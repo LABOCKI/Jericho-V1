@@ -31,11 +31,6 @@ class Door:
     width: float
     height: float = 7.0  # Default door height in feet
     wall_index: Optional[int] = None
-    
-    def __post_init__(self):
-        """Initialize with default height if not specified."""
-        if self.height is None:
-            self.height = 7.0
 
 
 @dataclass
@@ -46,13 +41,6 @@ class Window:
     height: float = 4.0  # Default window height in feet
     sill_height: float = 3.0  # Height from floor to window sill
     wall_index: Optional[int] = None
-    
-    def __post_init__(self):
-        """Initialize with default dimensions if not specified."""
-        if self.height is None:
-            self.height = 4.0
-        if self.sill_height is None:
-            self.sill_height = 3.0
 
 
 @dataclass
