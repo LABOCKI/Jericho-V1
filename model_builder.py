@@ -5,7 +5,11 @@ Generates 3D models from parsed PDF data.
 
 import numpy as np
 import trimesh
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Optional
+from data_structures import (
+    Building, Floor, Room, Wall, Door, Window,
+    Point, Elevation, RoofProfile
+)
 
 
 class ModelBuilder:
@@ -142,6 +146,307 @@ class ModelBuilder:
         mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
         return mesh
     
+    def create_room_walls(self, room: Room, elevation: float = 0.0) -> List[trimesh.Trimesh]:
+        """
+        Create walls for a room from its boundary points.
+        
+        Args:
+            room: Room object with boundary points
+            elevation: Z elevation for the room floor
+        
+        Returns:
+            List of wall meshes
+        """
+        meshes = []
+        boundary = room.boundary_points
+        
+        if len(boundary) < 2:
+            return meshes
+        
+        for i in range(len(boundary)):
+            j = (i + 1) % len(boundary)
+            start = boundary[i]
+            end = boundary[j]
+            
+            # Create wall from start to end
+            wall_mesh = self.create_wall(
+                (start.x * self.scale_factor, start.y * self.scale_factor),
+                (end.x * self.scale_factor, end.y * self.scale_factor),
+                height=room.height * self.scale_factor,
+                thickness=0.5 * self.scale_factor
+            )
+            
+            # Translate to correct elevation
+            if wall_mesh.vertices.shape[0] > 0:
+                wall_mesh.apply_translation([0, 0, elevation * self.scale_factor])
+                meshes.append(wall_mesh)
+        
+        return meshes
+    
+    def create_floor_slab(self, room: Room, elevation: float = 0.0, 
+                          thickness: float = 0.5) -> trimesh.Trimesh:
+        """
+        Create a floor slab for a room.
+        
+        Args:
+            room: Room object with boundary points
+            elevation: Z elevation for the floor
+            thickness: Thickness of the floor slab
+        
+        Returns:
+            Floor slab mesh
+        """
+        boundary = room.boundary_points
+        
+        if len(boundary) < 3:
+            return trimesh.Trimesh()
+        
+        # Create 2D polygon and extrude
+        points_2d = np.array([[p.x * self.scale_factor, p.y * self.scale_factor] 
+                              for p in boundary])
+        
+        try:
+            # Create a polygon from the boundary points
+            polygon = trimesh.creation.extrude_polygon(
+                points_2d, 
+                height=thickness * self.scale_factor
+            )
+            
+            # Translate to correct elevation
+            polygon.apply_translation([0, 0, elevation * self.scale_factor])
+            
+            return polygon
+        except Exception as e:
+            print(f"Error creating floor slab: {e}")
+            return trimesh.Trimesh()
+    
+    def create_ceiling(self, room: Room, elevation: float = 0.0) -> trimesh.Trimesh:
+        """
+        Create a ceiling for a room.
+        
+        Args:
+            room: Room object with boundary points
+            elevation: Z elevation for the ceiling
+        
+        Returns:
+            Ceiling mesh
+        """
+        return self.create_floor_slab(room, elevation + room.height, thickness=0.1)
+    
+    def create_door_opening(self, door: Door, wall_start: Point, wall_end: Point,
+                           elevation: float = 0.0) -> trimesh.Trimesh:
+        """
+        Create a door opening in a wall.
+        
+        Args:
+            door: Door object
+            wall_start: Wall start point
+            wall_end: Wall end point
+            elevation: Z elevation
+        
+        Returns:
+            Door mesh (frame)
+        """
+        # Simplified door representation as a frame
+        width = door.width * self.scale_factor
+        height = door.height * self.scale_factor
+        
+        pos_x = door.position.x * self.scale_factor
+        pos_y = door.position.y * self.scale_factor
+        pos_z = elevation * self.scale_factor
+        
+        # Create a simple box for door frame
+        door_mesh = trimesh.creation.box(
+            extents=[width, 0.2 * self.scale_factor, height]
+        )
+        door_mesh.apply_translation([pos_x, pos_y, pos_z + height / 2])
+        
+        return door_mesh
+    
+    def create_window_opening(self, window: Window, wall_start: Point, wall_end: Point,
+                             elevation: float = 0.0) -> trimesh.Trimesh:
+        """
+        Create a window opening in a wall.
+        
+        Args:
+            window: Window object
+            wall_start: Wall start point
+            wall_end: Wall end point
+            elevation: Z elevation
+        
+        Returns:
+            Window mesh (frame)
+        """
+        # Simplified window representation as a frame
+        width = window.width * self.scale_factor
+        height = window.height * self.scale_factor
+        sill_height = window.sill_height * self.scale_factor
+        
+        pos_x = window.position.x * self.scale_factor
+        pos_y = window.position.y * self.scale_factor
+        pos_z = elevation * self.scale_factor + sill_height
+        
+        # Create a simple box for window frame
+        window_mesh = trimesh.creation.box(
+            extents=[width, 0.1 * self.scale_factor, height]
+        )
+        window_mesh.apply_translation([pos_x, pos_y, pos_z + height / 2])
+        
+        return window_mesh
+    
+    def build_floor(self, floor: Floor) -> List[trimesh.Trimesh]:
+        """
+        Build all meshes for a single floor.
+        
+        Args:
+            floor: Floor object
+        
+        Returns:
+            List of meshes for this floor
+        """
+        meshes = []
+        
+        for room in floor.rooms:
+            # Create room walls
+            wall_meshes = self.create_room_walls(room, floor.elevation)
+            meshes.extend(wall_meshes)
+            
+            # Create floor slab
+            floor_slab = self.create_floor_slab(room, floor.elevation)
+            if floor_slab.vertices.shape[0] > 0:
+                meshes.append(floor_slab)
+            
+            # Create ceiling
+            ceiling = self.create_ceiling(room, floor.elevation)
+            if ceiling.vertices.shape[0] > 0:
+                meshes.append(ceiling)
+        
+        return meshes
+    
+    def create_roof_from_elevation(self, elevation: Elevation, 
+                                   building_width: float,
+                                   building_depth: float,
+                                   base_height: float) -> List[trimesh.Trimesh]:
+        """
+        Create roof mesh from elevation profile.
+        
+        Args:
+            elevation: Elevation object with roof profile
+            building_width: Width of building
+            building_depth: Depth of building
+            base_height: Height to start roof from
+        
+        Returns:
+            List of roof meshes
+        """
+        meshes = []
+        
+        if not elevation.roof_profile or not elevation.roof_profile.points:
+            return meshes
+        
+        points = elevation.roof_profile.points
+        
+        # Create a simple gable roof
+        if len(points) >= 2:
+            # Find the peak
+            peak_idx = max(range(len(points)), key=lambda i: points[i].z)
+            peak = points[peak_idx]
+            
+            # Create roof planes
+            roof_height = peak.z * self.scale_factor + base_height * self.scale_factor
+            
+            # Left roof plane
+            left_vertices = np.array([
+                [0, 0, base_height * self.scale_factor],
+                [building_width / 2, 0, roof_height],
+                [building_width / 2, building_depth, roof_height],
+                [0, building_depth, base_height * self.scale_factor]
+            ])
+            
+            left_faces = np.array([
+                [0, 1, 2], [0, 2, 3]
+            ])
+            
+            left_roof = trimesh.Trimesh(vertices=left_vertices, faces=left_faces)
+            meshes.append(left_roof)
+            
+            # Right roof plane
+            right_vertices = np.array([
+                [building_width / 2, 0, roof_height],
+                [building_width, 0, base_height * self.scale_factor],
+                [building_width, building_depth, base_height * self.scale_factor],
+                [building_width / 2, building_depth, roof_height]
+            ])
+            
+            right_faces = np.array([
+                [0, 1, 2], [0, 2, 3]
+            ])
+            
+            right_roof = trimesh.Trimesh(vertices=right_vertices, faces=right_faces)
+            meshes.append(right_roof)
+        
+        return meshes
+    
+    def build_from_building_structure(self, building: Building) -> trimesh.Trimesh:
+        """
+        Build a 3D model from a Building structure with multiple floors.
+        
+        Args:
+            building: Building object with floors and elevations
+        
+        Returns:
+            Combined trimesh object
+        """
+        meshes = []
+        
+        # Build each floor
+        for floor in building.floors:
+            floor_meshes = self.build_floor(floor)
+            meshes.extend(floor_meshes)
+        
+        # Calculate building dimensions for roof
+        if building.floors and building.floors[0].rooms:
+            all_points = []
+            for floor in building.floors:
+                for room in floor.rooms:
+                    for point in room.boundary_points:
+                        all_points.append((point.x, point.y))
+            
+            if all_points:
+                xs = [p[0] for p in all_points]
+                ys = [p[1] for p in all_points]
+                
+                building_width = (max(xs) - min(xs)) * self.scale_factor
+                building_depth = (max(ys) - min(ys)) * self.scale_factor
+                
+                # Get the top floor height
+                if building.floors:
+                    top_floor = max(building.floors, key=lambda f: f.elevation)
+                    base_height = top_floor.elevation + top_floor.height
+                    
+                    # Build roof from elevations
+                    for elevation in building.elevations:
+                        if elevation.roof_profile:
+                            roof_meshes = self.create_roof_from_elevation(
+                                elevation, building_width, building_depth, base_height
+                            )
+                            meshes.extend(roof_meshes)
+                            break  # Use first elevation with roof profile
+        
+        # Combine all meshes
+        if meshes:
+            # Filter out empty meshes
+            valid_meshes = [m for m in meshes if m.vertices.shape[0] > 0]
+            
+            if valid_meshes:
+                combined_mesh = trimesh.util.concatenate(valid_meshes)
+                self.mesh = combined_mesh
+                return combined_mesh
+        
+        # Fallback to placeholder if no valid geometry
+        print("No valid geometry from building structure. Creating placeholder.")
+        return self.create_placeholder_room()
+    
     def build_from_geometric_data(self) -> trimesh.Trimesh:
         """
         Build a 3D model from the geometric data in parsed_data.
@@ -274,9 +579,19 @@ def build_model(parsed_data: Dict[str, Any], use_placeholder: bool = True) -> Mo
     builder = ModelBuilder(parsed_data)
     builder.set_scale(0.3048)  # Convert feet to meters
     
-    if use_placeholder or not parsed_data.get('geometric_data', {}).get('lines'):
+    # Check if we have a Building structure
+    building = parsed_data.get('building')
+    
+    if use_placeholder or not building:
         builder.build_placeholder_model()
-    else:
+    elif building and (building.floors or building.elevations):
+        # Build from Building structure
+        builder.build_from_building_structure(building)
+    elif parsed_data.get('geometric_data', {}).get('lines'):
+        # Fall back to geometric data
         builder.build_from_geometric_data()
+    else:
+        # Last resort: placeholder
+        builder.build_placeholder_model()
     
     return builder
