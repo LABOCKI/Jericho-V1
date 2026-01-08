@@ -201,21 +201,52 @@ class ModelBuilder:
         if len(boundary) < 3:
             return trimesh.Trimesh()
         
-        # Create 2D polygon and extrude
-        points_2d = np.array([[p.x * self.scale_factor, p.y * self.scale_factor] 
-                              for p in boundary])
-        
         try:
-            # Create a polygon from the boundary points
-            polygon = trimesh.creation.extrude_polygon(
-                points_2d, 
-                height=thickness * self.scale_factor
-            )
+            # Create vertices for the floor slab (top and bottom)
+            vertices = []
             
-            # Translate to correct elevation
-            polygon.apply_translation([0, 0, elevation * self.scale_factor])
+            # Bottom vertices
+            for point in boundary:
+                vertices.append([
+                    point.x * self.scale_factor,
+                    point.y * self.scale_factor,
+                    elevation * self.scale_factor
+                ])
             
-            return polygon
+            # Top vertices
+            for point in boundary:
+                vertices.append([
+                    point.x * self.scale_factor,
+                    point.y * self.scale_factor,
+                    elevation * self.scale_factor + thickness * self.scale_factor
+                ])
+            
+            vertices = np.array(vertices)
+            
+            # Create faces
+            faces = []
+            n = len(boundary)
+            
+            # Bottom face (triangulate)
+            for i in range(1, n - 1):
+                faces.append([0, i, i + 1])
+            
+            # Top face (triangulate)
+            for i in range(1, n - 1):
+                faces.append([n, n + i + 1, n + i])
+            
+            # Side faces
+            for i in range(n):
+                j = (i + 1) % n
+                # Two triangles per side
+                faces.append([i, j, n + j])
+                faces.append([i, n + j, n + i])
+            
+            faces = np.array(faces)
+            
+            slab = trimesh.Trimesh(vertices=vertices, faces=faces)
+            return slab
+            
         except Exception as e:
             print(f"Error creating floor slab: {e}")
             return trimesh.Trimesh()

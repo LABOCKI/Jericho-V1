@@ -132,6 +132,18 @@
                 <button class="btn" id="wireframe">🔲 Toggle Wireframe</button>
                 <button class="btn" id="closeBtn">❌ Close</button>
             </div>
+            
+            <div class="control-group" id="floorControls" style="display: none;">
+                <label><strong>Floor Visibility</strong></label>
+                <div id="floorToggles"></div>
+            </div>
+            
+            <div class="control-group" id="viewControls">
+                <label><strong>View Presets</strong></label>
+                <button class="btn" id="viewFront">Front</button>
+                <button class="btn" id="viewTop">Top</button>
+                <button class="btn" id="viewSide">Side</button>
+            </div>
         </div>
 
         <div class="info">
@@ -348,6 +360,22 @@
             // Close button
             document.getElementById('closeBtn').addEventListener('click', function() {
                 window.close();
+            });
+            
+            // View preset buttons
+            document.getElementById('viewFront').addEventListener('click', function() {
+                camera.position.set(0, 10, 40);
+                camera.lookAt(0, 0, 0);
+            });
+            
+            document.getElementById('viewTop').addEventListener('click', function() {
+                camera.position.set(0, 50, 0);
+                camera.lookAt(0, 0, 0);
+            });
+            
+            document.getElementById('viewSide').addEventListener('click', function() {
+                camera.position.set(40, 10, 0);
+                camera.lookAt(0, 0, 0);
             });
 
             // Mouse controls
