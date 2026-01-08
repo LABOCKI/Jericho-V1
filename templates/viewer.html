@@ -145,11 +145,15 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script>
         // Three.js scene setup
         let scene, camera, renderer, model;
         let rotationEnabled = true;
         let rotationSpeed = 0.5;
+
+        // Get model file from template variable
+        const modelFile = "{{ model_file }}";
 
         function init() {
             // Scene
@@ -191,8 +195,8 @@
             const axesHelper = new THREE.AxesHelper(5);
             scene.add(axesHelper);
 
-            // Load placeholder model
-            createPlaceholderModel();
+            // Load 3D model
+            loadModel();
 
             // Controls
             setupControls();
@@ -200,17 +204,55 @@
             // Handle window resize
             window.addEventListener('resize', onWindowResize, false);
 
-            // Hide loading screen
-            setTimeout(() => {
-                document.getElementById('loading').style.display = 'none';
-            }, 1000);
-
             // Animation loop
             animate();
         }
 
+        function loadModel() {
+            const loader = new THREE.GLTFLoader();
+            const modelPath = `/static/${modelFile}`;
+            
+            console.log(`Loading model from: ${modelPath}`);
+            
+            loader.load(
+                modelPath,
+                function (gltf) {
+                    // Success callback
+                    model = gltf.scene;
+                    
+                    // Center the model
+                    const box = new THREE.Box3().setFromObject(model);
+                    const center = box.getCenter(new THREE.Vector3());
+                    model.position.sub(center);
+                    
+                    // Add to scene
+                    scene.add(model);
+                    
+                    // Hide loading screen
+                    document.getElementById('loading').style.display = 'none';
+                    
+                    console.log('Model loaded successfully');
+                },
+                function (xhr) {
+                    // Progress callback
+                    const percentComplete = (xhr.loaded / xhr.total) * 100;
+                    console.log(`Loading: ${percentComplete.toFixed(2)}%`);
+                },
+                function (error) {
+                    // Error callback
+                    console.error('Error loading model:', error);
+                    document.getElementById('loading').innerHTML = 
+                        '<h2>❌ Error Loading Model</h2><p>' + error.message + '</p>';
+                    
+                    // Show a placeholder if model fails to load
+                    createPlaceholderModel();
+                    document.getElementById('loading').style.display = 'none';
+                }
+            );
+        }
+
         function createPlaceholderModel() {
-            // Create a simple house structure as placeholder
+            // Fallback: Create a simple house structure as placeholder
             const group = new THREE.Group();
 
             // Room 1
