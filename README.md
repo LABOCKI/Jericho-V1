@@ -46,6 +46,11 @@ pip install -r requirements.txt
 python main.py
 ```
 
+For development with debug mode (not recommended for production):
+```bash
+FLASK_DEBUG=true python main.py
+```
+
 2. Open your browser and navigate to:
 ```
 http://localhost:5000

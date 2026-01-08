@@ -205,6 +205,10 @@ def status():
 
 if __name__ == '__main__':
     # Run the Flask app
+    # Debug mode should only be enabled in development, not production
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     print("Starting PDF to 3D Model Conversion App...")
     print("Visit http://localhost:5000 to access the application")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    if debug_mode:
+        print("WARNING: Running in DEBUG mode. This should NOT be used in production!")
+    app.run(host='0.0.0.0', port=5000, debug=debug_mode)
