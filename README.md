@@ -18,10 +18,10 @@ A Flask-based web application that converts PDF house plans (floor plans and ele
 ├── pdf_parser.py         # PDF parsing logic (PyPDF2, pdfplumber)
 ├── model_builder.py      # 3D model generation (trimesh)
 ├── static/
-│   ├── viewer.html       # 3D model viewer (Three.js)
 │   └── styles.css        # UI styling
 ├── templates/
-│   └── index.html        # Main upload interface
+│   ├── index.html        # Main upload interface
+│   └── viewer.html       # 3D model viewer (Three.js)
 ├── requirements.txt      # Python dependencies
 └── .gitignore           # Git ignore rules
 ```
