@@ -4,7 +4,7 @@ Entry point for the PDF to 3D model conversion app.
 """
 
 import os
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, send_from_directory
 from werkzeug.utils import secure_filename
 import json
 
@@ -185,8 +185,54 @@ def viewer():
     """
     Render the 3D model viewer page.
     """
-    model_file = request.args.get('model', '')
+    model_file = request.args.get('model', 'output.glb')
+    
+    # Validate model_file to prevent path traversal attacks
+    # Only allow alphanumeric characters, dots, hyphens, and underscores
+    import re
+    if not re.match(r'^[\w\-\.]+$', model_file):
+        model_file = 'output.glb'  # Fall back to default if invalid
+    
+    # Ensure the file doesn't contain path traversal sequences
+    if '..' in model_file or '/' in model_file or '\\' in model_file:
+        model_file = 'output.glb'  # Fall back to default if invalid
+    
     return render_template('viewer.html', model_file=model_file)
+
+
+@app.route('/render-pdf', methods=['GET'])
+def render_pdf():
+    """
+    Simulate PDF scanning and 3D model rendering.
+    Redirects to the viewer page upon successful rendering.
+    
+    Returns:
+        Redirect response to the viewer page
+    """
+    # In a real implementation, this would:
+    # 1. Accept a PDF file
+    # 2. Parse the PDF using pdf_parser
+    # 3. Generate a 3D model using model_builder
+    # 4. Save the model as output.glb
+    # 
+    # For this simulation, we assume the model already exists
+    # and redirect to the viewer with the default model
+    
+    return redirect(url_for('viewer', model='output.glb'))
+
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    """
+    Serve static files such as 3D models.
+    
+    Args:
+        filename: Path to the static file
+    
+    Returns:
+        Static file response
+    """
+    return send_from_directory('static', filename)
 
 
 @app.route('/api/status', methods=['GET'])
